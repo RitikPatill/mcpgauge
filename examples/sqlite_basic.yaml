@@ -1,0 +1,29 @@
+name: sqlite_basic
+description: "Verify the SQLite MCP server can create tables and query data."
+transport: stdio
+server_command: [uvx, mcp-server-sqlite, --db-path, /tmp/mcpgauge_test.db]
+cases:
+  - id: list_tables_empty
+    prompt: "List all tables in the database."
+    expected_tools: [list_tables]
+    rubric:
+      criteria:
+        - name: correct_tool_used
+          description: "Agent called list_tables."
+        - name: handles_empty_db
+          description: "Agent reports an empty database rather than hallucinating tables."
+
+  - id: create_insert_query
+    prompt: >
+      Create a table called 'items' with columns id (integer primary key) and
+      name (text). Insert one row with name='apple'. Then query all rows.
+    expected_tools: [execute_query]
+    max_turns: 15
+    rubric:
+      criteria:
+        - name: table_created
+          description: "Agent issued a CREATE TABLE statement."
+        - name: row_inserted
+          description: "Agent inserted at least one row."
+        - name: data_retrieved
+          description: "Agent reported back the inserted row."
