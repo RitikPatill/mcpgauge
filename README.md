@@ -19,7 +19,7 @@ MCP server authors who want automated regression testing — anyone who has writ
 
 ---
 
-## What works now (M3)
+## What works now (M4)
 
 | Area | Status |
 |---|---|
@@ -37,8 +37,13 @@ MCP server authors who want automated regression testing — anyone who has writ
 | **Suite schema** (`src/mcpgauge/schema.py`) — Pydantic v2 models: `Criterion`, `Rubric`, `Case`, `Suite` | **done** |
 | **YAML loader** (`src/mcpgauge/loader.py`) — `load_suite(path)` with readable validation errors | **done** |
 | **Example suites** (`examples/filesystem_basic.yaml`, `examples/sqlite_basic.yaml`) | **done** |
+| **Agent runner** (`src/mcpgauge/runner.py`) — drives Claude Haiku's tool-use API turn-by-turn until `end_turn`, recording every `ToolCallRecord` into an `AgentTrace` | **done** |
+| **Suite orchestrator** (`run_suite`) — connects the MCP client, iterates cases, calls judge, persists results | **done** |
+| **LLM-as-judge** (`src/mcpgauge/judge.py`) — sends the trace to a second Claude call with `tool_choice: any`, forcing structured `record_judgments` output; returns `CriterionVerdict` per rubric criterion | **done** |
+| **SQLite store** (`src/mcpgauge/store.py`) — SQLModel table models: `Run`, `CaseResult`, `ToolCall`, `Judgment`; thin CRUD helpers; `init_db` / `get_engine` | **done** |
+| **`mcpgauge run`** — functional CLI command: loads suite, initialises DB, runs agent + judge, prints per-case pass/fail, writes run UUID | **done** |
 
-`run`, `serve`, and `diff` commands are stubs — they will be implemented in future milestones.
+`serve` and `diff` commands are stubs — they will be implemented in future milestones.
 
 ### Loading a suite
 
@@ -94,9 +99,26 @@ Usage: mcpgauge [OPTIONS] COMMAND [ARGS]...
 
 Commands:
   version  Print the version and exit.
-  run      [coming soon] Run a YAML test suite against an MCP server.
+  run      Run a YAML test suite against an MCP server.
   serve    [coming soon] Start the dashboard web UI.
   diff     [coming soon] Compare two runs side by side.
+```
+
+Run a suite against a local MCP server:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+mcpgauge run examples/filesystem_basic.yaml
+# Running suite: filesystem_basic (2 cases)
+#   [✓] list_tmp: passed
+#   [✗] write_file: failed
+# Run 3f8a2...: 1/2 passed
+```
+
+Results are written to `mcpgauge.db` (SQLite). Override the path with `--db`:
+
+```bash
+mcpgauge run examples/filesystem_basic.yaml --db /tmp/eval.db
 ```
 
 Use `MCPClient` directly in Python:
@@ -174,13 +196,11 @@ uv run ruff format .   # format
 
 - [x] **M1** — Scaffold + README
 - [x] **M2** — MCP client: stdio + SSE transport, tool/resource/prompt discovery
-- [x] **M3** — Suite schema (Pydantic v2) + YAML loader + example suites (you are here)
-- [ ] **M4** — Agent loop: Anthropic tool-use API, conversation driver
-- [ ] **M5** — LLM-as-judge scorer with structured rubric
-- [ ] **M6** — SQLite store (SQLModel): runs, cases, tool calls, judgments
-- [ ] **M7** — FastAPI + HTMX dashboard: runs list + case detail
-- [ ] **M8** — Trace timeline + run diff view
-- [ ] **M9** — Example suites: filesystem, sqlite, security/poisoning
+- [x] **M3** — Suite schema (Pydantic v2) + YAML loader + example suites
+- [x] **M4** — Agent runner (Anthropic tool-use loop) + LLM-as-judge scorer + SQLite persistence via SQLModel (you are here)
+- [ ] **M5** — FastAPI + HTMX dashboard: runs list + case detail
+- [ ] **M6** — Trace timeline + run diff view
+- [ ] **M7** — Example suites: filesystem, sqlite, security/poisoning
 
 ---
 
