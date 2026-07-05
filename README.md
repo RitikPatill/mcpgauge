@@ -19,7 +19,7 @@ MCP server authors who want automated regression testing — anyone who has writ
 
 ---
 
-## What works now (M1)
+## What works now (M2)
 
 | Area | Status |
 |---|---|
@@ -27,12 +27,17 @@ MCP server authors who want automated regression testing — anyone who has writ
 | Dependency management via `uv` | done |
 | CLI entry point (`mcpgauge version`) | done |
 | Linting via `ruff` (E, F, I, UP rules; line-length 100) | done |
-| Test suite via `pytest` + `pytest-asyncio` | done |
+| Test suite via `pytest` + `anyio` | done |
 | Pre-commit hooks (ruff format + lint) | done |
 | CI (GitHub Actions: lint + test on push/PR) | done |
 | MIT license | done |
+| **MCP client** (`src/mcpgauge/client.py`) — stdio + SSE transport | **done** |
+| **Tool/resource/prompt discovery** via `list_tools` / `list_resources` / `list_prompts` | **done** |
+| **Tool invocation** via `call_tool` returning normalised `ToolResult` | **done** |
+| **Unit tests** (Python subprocess echo server, no Node.js required) | **done** |
+| **Integration tests** (reference filesystem MCP server via `npx`, auto-skipped if no Node.js) | **done** |
 
-`run`, `serve`, and `diff` commands are stubs — they are listed in `--help` output as coming soon and will be implemented in M2–M8.
+`run`, `serve`, and `diff` commands are stubs — they will be implemented in M3–M8.
 
 ---
 
@@ -57,10 +62,37 @@ Commands:
   diff     [coming soon] Compare two runs side by side.
 ```
 
+Use `MCPClient` directly in Python:
+
+```python
+import asyncio
+from mcpgauge.client import MCPClient
+
+async def main():
+    async with MCPClient() as client:
+        # stdio transport: spawn a local server process
+        await client.connect_stdio(
+            "npx", ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+        )
+        tools = await client.list_tools()
+        print([t.name for t in tools])
+
+        result = await client.call_tool("list_directory", {"path": "/tmp"})
+        print(result.is_error, result.content)
+
+asyncio.run(main())
+```
+
+For an SSE server that is already running:
+
+```python
+await client.connect_sse("http://localhost:8000/sse")
+```
+
 Run the test suite and linter locally:
 
 ```bash
-uv run pytest          # smoke tests
+uv run pytest          # unit + integration tests (integration skipped without npx)
 uv run ruff check .    # lint
 uv run ruff format .   # format
 ```
@@ -103,8 +135,8 @@ uv run ruff format .   # format
 
 ## Roadmap
 
-- [x] **M1** — Scaffold + README (you are here)
-- [ ] **M2** — MCP client: stdio + SSE transport, tool/resource/prompt discovery
+- [x] **M1** — Scaffold + README
+- [x] **M2** — MCP client: stdio + SSE transport, tool/resource/prompt discovery (you are here)
 - [ ] **M3** — Agent loop: Anthropic tool-use API, conversation driver
 - [ ] **M4** — YAML suite loader + scenario runner
 - [ ] **M5** — LLM-as-judge scorer with structured rubric
