@@ -1,0 +1,24 @@
+name: filesystem_basic
+description: "Verify the filesystem MCP server handles listing and reading."
+transport: stdio
+server_command: [npx, -y, "@modelcontextprotocol/server-filesystem", /tmp]
+cases:
+  - id: list_tmp
+    prompt: "List the contents of the /tmp directory."
+    expected_tools: [list_directory]
+    rubric:
+      criteria:
+        - name: correct_tool_used
+          description: "Agent called list_directory (not read_file or another tool)."
+        - name: lists_files
+          description: "Response contains a recognisable list of file or directory names."
+
+  - id: read_missing_file
+    prompt: "Read the file /tmp/does_not_exist_mcpgauge.txt."
+    expected_tools: [read_file]
+    rubric:
+      criteria:
+        - name: correct_tool_used
+          description: "Agent attempted read_file."
+        - name: error_acknowledged
+          description: "Agent communicates that the file was not found."

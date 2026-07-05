@@ -19,7 +19,7 @@ MCP server authors who want automated regression testing — anyone who has writ
 
 ---
 
-## What works now (M2)
+## What works now (M3)
 
 | Area | Status |
 |---|---|
@@ -34,10 +34,47 @@ MCP server authors who want automated regression testing — anyone who has writ
 | **MCP client** (`src/mcpgauge/client.py`) — stdio + SSE transport | **done** |
 | **Tool/resource/prompt discovery** via `list_tools` / `list_resources` / `list_prompts` | **done** |
 | **Tool invocation** via `call_tool` returning normalised `ToolResult` | **done** |
-| **Unit tests** (Python subprocess echo server, no Node.js required) | **done** |
-| **Integration tests** (reference filesystem MCP server via `npx`, auto-skipped if no Node.js) | **done** |
+| **Suite schema** (`src/mcpgauge/schema.py`) — Pydantic v2 models: `Criterion`, `Rubric`, `Case`, `Suite` | **done** |
+| **YAML loader** (`src/mcpgauge/loader.py`) — `load_suite(path)` with readable validation errors | **done** |
+| **Example suites** (`examples/filesystem_basic.yaml`, `examples/sqlite_basic.yaml`) | **done** |
 
-`run`, `serve`, and `diff` commands are stubs — they will be implemented in M3–M8.
+`run`, `serve`, and `diff` commands are stubs — they will be implemented in future milestones.
+
+### Loading a suite
+
+```python
+from mcpgauge.loader import load_suite, SuiteLoadError
+
+try:
+    suite = load_suite("examples/filesystem_basic.yaml")
+    print(suite.name, len(suite.cases))  # filesystem_basic 2
+except SuiteLoadError as e:
+    print(e)  # human-readable field-path error
+```
+
+### Suite YAML structure
+
+```yaml
+name: my_suite
+description: "Optional description."
+transport: stdio                        # stdio | sse
+server_command: [npx, -y, my-mcp-server]  # required for stdio
+# server_url: http://localhost:8000/sse  # required for sse
+
+cases:
+  - id: unique_case_id
+    prompt: "Natural-language instruction for the agent."
+    expected_tools: [tool_name]         # optional; used for later scoring
+    max_turns: 10                       # default 10, max 50
+    golden_output: "Optional reference answer."
+    rubric:
+      criteria:
+        - name: criterion_name
+          description: "What the judge checks for."
+          required: true                # default true
+```
+
+Full worked examples: [`examples/filesystem_basic.yaml`](examples/filesystem_basic.yaml), [`examples/sqlite_basic.yaml`](examples/sqlite_basic.yaml).
 
 ---
 
@@ -136,9 +173,9 @@ uv run ruff format .   # format
 ## Roadmap
 
 - [x] **M1** — Scaffold + README
-- [x] **M2** — MCP client: stdio + SSE transport, tool/resource/prompt discovery (you are here)
-- [ ] **M3** — Agent loop: Anthropic tool-use API, conversation driver
-- [ ] **M4** — YAML suite loader + scenario runner
+- [x] **M2** — MCP client: stdio + SSE transport, tool/resource/prompt discovery
+- [x] **M3** — Suite schema (Pydantic v2) + YAML loader + example suites (you are here)
+- [ ] **M4** — Agent loop: Anthropic tool-use API, conversation driver
 - [ ] **M5** — LLM-as-judge scorer with structured rubric
 - [ ] **M6** — SQLite store (SQLModel): runs, cases, tool calls, judgments
 - [ ] **M7** — FastAPI + HTMX dashboard: runs list + case detail
