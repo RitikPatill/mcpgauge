@@ -63,5 +63,26 @@ def run(
     typer.echo(f"\nRun {run_id}: {passed}/{total} passed")
 
 
+@app.command()
+def serve(
+    db: str = typer.Option("mcpgauge.db", help="Path to SQLite database"),
+    host: str = typer.Option("127.0.0.1", help="Host to bind to"),
+    port: int = typer.Option(8000, help="Port to listen on"),
+    open_browser: bool = typer.Option(True, "--open/--no-open", help="Open browser on start"),
+) -> None:
+    """Start the MCPGauge web dashboard."""
+    import threading
+    import webbrowser
+
+    import uvicorn
+
+    from mcpgauge.app import create_app
+
+    web_app = create_app(db_path=db)
+    if open_browser:
+        threading.Timer(1.0, lambda: webbrowser.open(f"http://{host}:{port}/runs")).start()
+    uvicorn.run(web_app, host=host, port=port)
+
+
 if __name__ == "__main__":
     app()

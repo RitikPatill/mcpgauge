@@ -19,7 +19,7 @@ MCP server authors who want automated regression testing — anyone who has writ
 
 ---
 
-## What works now (M4)
+## What works now (M5)
 
 | Area | Status |
 |---|---|
@@ -42,8 +42,11 @@ MCP server authors who want automated regression testing — anyone who has writ
 | **LLM-as-judge** (`src/mcpgauge/judge.py`) — sends the trace to a second Claude call with `tool_choice: any`, forcing structured `record_judgments` output; returns `CriterionVerdict` per rubric criterion | **done** |
 | **SQLite store** (`src/mcpgauge/store.py`) — SQLModel table models: `Run`, `CaseResult`, `ToolCall`, `Judgment`; thin CRUD helpers; `init_db` / `get_engine` | **done** |
 | **`mcpgauge run`** — functional CLI command: loads suite, initialises DB, runs agent + judge, prints per-case pass/fail, writes run UUID | **done** |
+| **FastAPI app** (`src/mcpgauge/app.py`) — REST API (`/api/runs`, `/api/runs/{id}`, `/api/runs/{id}/cases/{id}`), SSE live-stream (`/api/runs/{id}/events`), Connect MCP server endpoint (`/api/connect`), trigger run from UI (`POST /api/runs`) | **done** |
+| **HTMX + Tailwind dashboard** — runs list page, run detail page with live case streaming, case detail page with agent trace timeline and per-criterion judge verdicts | **done** |
+| **`mcpgauge serve`** — starts FastAPI on `localhost:8000`, opens browser automatically | **done** |
 
-`serve` and `diff` commands are stubs — they will be implemented in future milestones.
+`diff` command is a stub — it will be implemented in a future milestone.
 
 ### Loading a suite
 
@@ -100,11 +103,20 @@ Usage: mcpgauge [OPTIONS] COMMAND [ARGS]...
 Commands:
   version  Print the version and exit.
   run      Run a YAML test suite against an MCP server.
-  serve    [coming soon] Start the dashboard web UI.
+  serve    Start the dashboard web UI.
   diff     [coming soon] Compare two runs side by side.
 ```
 
-Run a suite against a local MCP server:
+Start the dashboard:
+
+```bash
+mcpgauge serve
+# opens http://localhost:8000/runs in your browser
+# paste a stdio command or SSE URL to connect an MCP server
+# click "Run Suite" to trigger a YAML suite run and watch cases stream in live
+```
+
+Run a suite from the CLI:
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
@@ -197,9 +209,9 @@ uv run ruff format .   # format
 - [x] **M1** — Scaffold + README
 - [x] **M2** — MCP client: stdio + SSE transport, tool/resource/prompt discovery
 - [x] **M3** — Suite schema (Pydantic v2) + YAML loader + example suites
-- [x] **M4** — Agent runner (Anthropic tool-use loop) + LLM-as-judge scorer + SQLite persistence via SQLModel (you are here)
-- [ ] **M5** — FastAPI + HTMX dashboard: runs list + case detail
-- [ ] **M6** — Trace timeline + run diff view
+- [x] **M4** — Agent runner (Anthropic tool-use loop) + LLM-as-judge scorer + SQLite persistence via SQLModel
+- [x] **M5** — FastAPI + HTMX dashboard: runs list + case detail (you are here)
+- [ ] **M6** — Run diff view (regression comparison between two runs)
 - [ ] **M7** — Example suites: filesystem, sqlite, security/poisoning
 
 ---

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Header -->
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <a href="/runs" class="text-sm text-gray-400 hover:text-indigo-600">&larr; All Runs</a>
+    <h1 class="text-2xl font-bold mt-1">{{ run.suite_name }}</h1>
+    <p class="text-sm text-gray-500 mt-0.5">{{ run.created_at }}</p>
+  </div>
+  <div class="text-right">
+    {% if run.passed_cases == run.total_cases %}
+      <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
+        {{ run.passed_cases }} / {{ run.total_cases }} passed
+      </span>
+    {% else %}
+      <span class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-semibold">
+        {{ run.passed_cases }} / {{ run.total_cases }} passed
+      </span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Cases Table -->
+<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+  <table class="w-full text-left">
+    <thead>
+      <tr class="border-b bg-gray-50 text-xs text-gray-500 uppercase">
+        <th class="px-4 py-3">Case ID</th>
+        <th class="px-4 py-3">Status</th>
+        <th class="px-4 py-3">Response Preview</th>
+      </tr>
+    </thead>
+    <tbody id="case-table-body"
+           hx-ext="sse"
+           sse-connect="/api/runs/{{ run.id }}/events"
+           sse-swap="case_done"
+           hx-swap="beforeend">
+      {% for case in cases %}
+      <tr class="border-b hover:bg-gray-50">
+        <td class="px-4 py-2 font-mono text-sm">{{ case.case_id }}</td>
+        <td class="px-4 py-2">
+          {% if case.status == "passed" %}
+            <span class="text-green-600 font-bold">&#10003; passed</span>
+          {% elif case.status == "failed" %}
+            <span class="text-red-600 font-bold">&#10007; failed</span>
+          {% else %}
+            <span class="text-yellow-600 font-bold">&#9888; {{ case.status }}</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-2 text-sm text-gray-600">
+          <a href="/runs/{{ run.id }}/cases/{{ case.id }}" class="hover:underline hover:text-indigo-600">
+            {{ (case.final_response or "")[:80] }}{% if (case.final_response or "")|length > 80 %}…{% endif %}
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if not cases %}
+  <p class="text-sm text-gray-400 px-4 py-6 text-center" id="empty-hint">
+    Waiting for cases to complete…
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+from sqlalchemy.pool import StaticPool
 from sqlmodel import Field, Session, SQLModel, create_engine, select, text
 
 
@@ -64,8 +65,18 @@ class Judgment(SQLModel, table=True):
 
 def get_engine(db_path: str):
     """Return a SQLAlchemy engine for the given SQLite path (use ':memory:' for tests)."""
-    url = f"sqlite:///{db_path}" if db_path != ":memory:" else "sqlite://"
-    return create_engine(url, echo=False, connect_args={"check_same_thread": False})
+    if db_path == ":memory:":
+        return create_engine(
+            "sqlite://",
+            echo=False,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+    return create_engine(
+        f"sqlite:///{db_path}",
+        echo=False,
+        connect_args={"check_same_thread": False},
+    )
 
 
 def init_db(engine) -> None:
