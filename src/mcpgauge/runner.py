@@ -131,13 +131,14 @@ async def run_suite(
     anthropic_client: anthropic.AsyncAnthropic,
     model: str = "claude-haiku-4-5-20251001",
     on_case_done=None,
+    run_id: str | None = None,
 ) -> str:
     """Run all cases in a suite, persist results, and return the run UUID."""
     # Lazy import to avoid circular dep
     from mcpgauge.judge import judge_case
     from mcpgauge.store import Judgment, save_judgment
 
-    run_id = str(uuid.uuid4())
+    run_id = run_id or str(uuid.uuid4())
     run = Run(
         id=run_id,
         suite_name=suite.name,

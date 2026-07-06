@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Connect MCP Server -->
+<section class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+  <h2 class="text-lg font-semibold mb-4">Connect MCP Server</h2>
+  <form hx-post="/api/connect"
+        hx-target="#tools-panel"
+        hx-swap="innerHTML"
+        class="space-y-4">
+    <div class="flex gap-6">
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="transport" value="stdio" checked class="text-indigo-600" />
+        <span class="text-sm font-medium">stdio</span>
+      </label>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="transport" value="sse" class="text-indigo-600" />
+        <span class="text-sm font-medium">SSE</span>
+      </label>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">
+        Command (stdio) or URL (SSE)
+      </label>
+      <input type="text" name="command" placeholder="npx -y @modelcontextprotocol/server-filesystem /tmp"
+             class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+    </div>
+    <button type="submit"
+            class="bg-indigo-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-indigo-700">
+      Connect &amp; Discover Tools
+    </button>
+  </form>
+  <div id="tools-panel" class="mt-4"></div>
+  <script>
+    // Serialize the form correctly for the JSON body expected by /api/connect
+    document.querySelector('form[hx-post="/api/connect"]').addEventListener('htmx:configRequest', function(e) {
+      var form = e.target;
+      var transport = form.querySelector('input[name="transport"]:checked').value;
+      var commandVal = form.querySelector('input[name="command"]').value;
+      e.detail.parameters = {};
+      if (transport === 'sse') {
+        e.detail.parameters = { transport: transport, url: commandVal };
+      } else {
+        e.detail.parameters = { transport: transport, command: commandVal };
+      }
+    });
+    // Render tool list or error from JSON response
+    document.querySelector('form[hx-post="/api/connect"]').addEventListener('htmx:afterRequest', function(e) {
+      var panel = document.getElementById('tools-panel');
+      try {
+        var data = JSON.parse(e.detail.xhr.responseText);
+        if (data.error) {
+          panel.innerHTML = '<div class="text-red-600 text-sm p-3 bg-red-50 rounded">' + data.error + '</div>';
+        } else if (data.tools) {
+          var items = data.tools.map(function(t) {
+            return '<li class="text-sm py-1"><span class="font-mono text-indigo-700">' + t.name + '</span>'
+              + (t.description ? ' — <span class="text-gray-500">' + t.description + '</span>' : '') + '</li>';
+          });
+          panel.innerHTML = '<p class="text-sm text-green-700 font-medium mb-2">Connected. ' + data.tools.length + ' tool(s) discovered:</p>'
+            + '<ul class="list-disc list-inside space-y-1">' + items.join('') + '</ul>';
+        }
+      } catch(err) {
+        panel.innerHTML = '<div class="text-red-600 text-sm">Unexpected response.</div>';
+      }
+    });
+  </script>
+</section>
+
+<!-- Run a Suite -->
+<section class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+  <h2 class="text-lg font-semibold mb-4">Run a Suite</h2>
+  <form id="run-form" class="flex gap-3">
+    <input type="text" name="suite_path" placeholder="examples/filesystem_basic.yaml"
+           class="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+    <button type="submit"
+            class="bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700">
+      Run Suite
+    </button>
+  </form>
+  <div id="run-status" class="mt-3"></div>
+  <script>
+    document.getElementById('run-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var suitePath = this.querySelector('input[name="suite_path"]').value;
+      document.getElementById('run-status').innerHTML = '<p class="text-sm text-gray-500">Starting run...</p>';
+      fetch('/api/runs', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({suite_path: suitePath})
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.run_id) {
+          window.location.href = '/runs/' + data.run_id;
+        } else {
+          document.getElementById('run-status').innerHTML =
+            '<p class="text-sm text-red-600">' + (data.detail || 'Error starting run') + '</p>';
+        }
+      }).catch(function(err) {
+        document.getElementById('run-status').innerHTML =
+          '<p class="text-sm text-red-600">Request failed: ' + err + '</p>';
+      });
+    });
+  </script>
+</section>
+
+<!-- Recent Runs -->
+<section class="bg-white rounded-lg border border-gray-200 p-6">
+  <h2 class="text-lg font-semibold mb-4">Recent Runs</h2>
+  <div hx-get="/api/runs"
+       hx-trigger="load"
+       hx-swap="outerHTML">
+    <p class="text-sm text-gray-400">Loading runs…</p>
+  </div>
+</section>
+
+<script>
+  // HTMX renders the API response as text; we need to intercept and render it as HTML.
+  // Use a response transformer to convert JSON array to an HTML table.
+  document.addEventListener('htmx:beforeSwap', function(e) {
+    if (e.detail.requestConfig && e.detail.requestConfig.path === '/api/runs') {
+      try {
+        var runs = JSON.parse(e.detail.serverResponse);
+        if (!Array.isArray(runs)) return;
+        var html;
+        if (runs.length === 0) {
+          html = '<p class="text-sm text-gray-500">No runs yet — run a suite from the CLI or use the form above.</p>';
+        } else {
+          var rows = runs.map(function(r) {
+            var badge = r.passed_cases === r.total_cases
+              ? '<span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">passed</span>'
+              : '<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">partial</span>';
+            return '<tr class="border-b hover:bg-gray-50">'
+              + '<td class="px-4 py-2 text-sm"><a href="/runs/' + r.id + '" class="text-indigo-600 hover:underline font-medium">' + r.suite_name + '</a></td>'
+              + '<td class="px-4 py-2 text-sm text-gray-500">' + new Date(r.created_at).toLocaleString() + '</td>'
+              + '<td class="px-4 py-2 text-sm">' + r.passed_cases + ' / ' + r.total_cases + '</td>'
+              + '<td class="px-4 py-2">' + badge + '</td>'
+              + '</tr>';
+          });
+          html = '<table class="w-full text-left">'
+            + '<thead><tr class="border-b text-xs text-gray-500 uppercase">'
+            + '<th class="px-4 py-2">Suite</th><th class="px-4 py-2">Date</th>'
+            + '<th class="px-4 py-2">Cases</th><th class="px-4 py-2">Status</th>'
+            + '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+        }
+        e.detail.serverResponse = html;
+      } catch(err) {}
+    }
+  });
+</script>
+
+{% endblock %}
