@@ -21,6 +21,34 @@
   </div>
 </div>
 
+<!-- Compare widget -->
+<div class="mb-6 flex items-center gap-3">
+  <label for="compare-run" class="text-sm text-gray-600 font-medium">Compare with:</label>
+  <select id="compare-run" class="border border-gray-300 rounded px-3 py-1.5 text-sm">
+    <option value="">Select a run…</option>
+  </select>
+  <button
+    onclick="const v=document.getElementById('compare-run').value;if(v)window.location='/runs/{{ run.id }}/diff/'+v;"
+    class="bg-indigo-600 text-white text-sm px-3 py-1.5 rounded hover:bg-indigo-700">
+    Compare &rarr;
+  </button>
+</div>
+<script>
+  (async () => {
+    const sel = document.getElementById('compare-run');
+    const resp = await fetch('/api/runs');
+    if (!resp.ok) return;
+    const runs = await resp.json();
+    runs.forEach(r => {
+      if (r.id === '{{ run.id }}') return;
+      const opt = document.createElement('option');
+      opt.value = r.id;
+      opt.textContent = r.id.slice(0, 8) + ' — ' + r.suite_name + ' (' + r.created_at.slice(0, 10) + ')';
+      sel.appendChild(opt);
+    });
+  })();
+</script>
+
 <!-- Cases Table -->
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
   <table class="w-full text-left">

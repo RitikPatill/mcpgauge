@@ -160,3 +160,50 @@ def test_root_redirects(client):
 def test_connect_bad_transport(client):
     resp = client.post("/api/connect", json={"transport": "stdio"})
     assert resp.status_code == 422
+
+
+def test_api_diff_endpoint():
+    """GET /api/runs/{a}/diff/{b} returns expected JSON shape."""
+    engine = get_engine(":memory:")
+    init_db(engine)
+
+    run_a = Run(suite_name="test_suite", total_cases=1, passed_cases=1)
+    run_b = Run(suite_name="test_suite", total_cases=1, passed_cases=0)
+    save_run(engine, run_a)
+    save_run(engine, run_b)
+
+    cr_a = CaseResult(
+        run_id=run_a.id,
+        case_id="case_001",
+        status="passed",
+        prompt="Do something",
+    )
+    cr_b = CaseResult(
+        run_id=run_b.id,
+        case_id="case_001",
+        status="failed",
+        prompt="Do something",
+    )
+    save_case_result(engine, cr_a)
+    save_case_result(engine, cr_b)
+
+    save_judgment(engine, Judgment(case_result_id=cr_a.id, criterion_name="correctness", passed=True, reasoning="ok"))
+    save_judgment(engine, Judgment(case_result_id=cr_b.id, criterion_name="correctness", passed=False, reasoning="nope"))
+
+    app = create_app(db_path=":memory:", engine=engine)
+    with TestClient(app) as c:
+        resp = c.get(f"/api/runs/{run_a.id}/diff/{run_b.id}")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["regressions"] == 1
+    assert data["fixes"] == 0
+    assert len(data["cases"]) == 1
+    assert data["cases"][0]["change"] == "regression"
+    assert data["cases"][0]["criteria"][0]["criterion_name"] == "correctness"
+    assert data["cases"][0]["criteria"][0]["changed"] is True
+
+
+def test_api_diff_not_found(client):
+    resp = client.get(f"/api/runs/{_RUN_ID}/diff/nonexistent-id")
+    assert resp.status_code == 404
