@@ -84,5 +84,41 @@ def serve(
     uvicorn.run(web_app, host=host, port=port)
 
 
+@app.command()
+def diff(
+    run_a: str = typer.Argument(..., help="First run ID (baseline)"),
+    run_b: str = typer.Argument(..., help="Second run ID (comparison)"),
+    db: Path = typer.Option(Path("mcpgauge.db"), "--db", help="Path to SQLite DB"),
+) -> None:
+    """Print a regression diff between two runs."""
+    from mcpgauge.diff import compute_diff
+    from mcpgauge.store import get_engine, init_db
+
+    engine = get_engine(str(db))
+    init_db(engine)
+
+    try:
+        d = compute_diff(engine, run_a, run_b)
+    except ValueError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1)
+
+    typer.echo(f"Diff  A={run_a[:8]}  vs  B={run_b[:8]}  (suite: {d.run_a.suite_name})")
+    typer.echo(f"Regressions: {d.regressions}  Fixes: {d.fixes}  Unchanged: {d.unchanged}")
+    typer.echo("")
+
+    header = f"{'CASE':<30}  {'STATUS_A':<10}  {'STATUS_B':<10}  CHANGE"
+    typer.echo(header)
+    typer.echo("-" * len(header))
+    for c in d.cases:
+        marker = {"regression": "!!!", "fix": "+++", "same": "   "}.get(c.change, "   ")
+        typer.echo(f"{c.case_id:<30}  {c.status_a:<10}  {c.status_b:<10}  {marker} {c.change}")
+        for cr in c.criteria:
+            if cr.changed:
+                a_sym = "(P)" if cr.passed_a else ("(F)" if cr.passed_a is not None else "(-)")
+                b_sym = "(P)" if cr.passed_b else ("(F)" if cr.passed_b is not None else "(-)")
+                typer.echo(f"  criterion {cr.criterion_name}: {a_sym} -> {b_sym}")
+
+
 if __name__ == "__main__":
     app()

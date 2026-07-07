@@ -19,7 +19,7 @@ MCP server authors who want automated regression testing — anyone who has writ
 
 ---
 
-## What works now (M5)
+## What works now (M6)
 
 | Area | Status |
 |---|---|
@@ -45,8 +45,11 @@ MCP server authors who want automated regression testing — anyone who has writ
 | **FastAPI app** (`src/mcpgauge/app.py`) — REST API (`/api/runs`, `/api/runs/{id}`, `/api/runs/{id}/cases/{id}`), SSE live-stream (`/api/runs/{id}/events`), Connect MCP server endpoint (`/api/connect`), trigger run from UI (`POST /api/runs`) | **done** |
 | **HTMX + Tailwind dashboard** — runs list page, run detail page with live case streaming, case detail page with agent trace timeline and per-criterion judge verdicts | **done** |
 | **`mcpgauge serve`** — starts FastAPI on `localhost:8000`, opens browser automatically | **done** |
-
-`diff` command is a stub — it will be implemented in a future milestone.
+| **Run diff** (`src/mcpgauge/diff.py`) — `compute_diff(engine, run_id_a, run_id_b)` returns a `RunDiff` with per-case status changes, per-criterion verdict diffs, and regression/fix/unchanged counts | **done** |
+| **`GET /api/runs/{a}/diff/{b}`** — JSON diff endpoint | **done** |
+| **`GET /runs/{a}/diff/{b}`** — HTML diff page with summary chips, colour-coded case table, and expandable criterion details | **done** |
+| **Compare widget** on run detail page — pick a second run from a dropdown and navigate to the diff view | **done** |
+| **`mcpgauge diff <run_a> <run_b>`** — CLI command printing a plain-text regression table | **done** |
 
 ### Loading a suite
 
@@ -104,7 +107,7 @@ Commands:
   version  Print the version and exit.
   run      Run a YAML test suite against an MCP server.
   serve    Start the dashboard web UI.
-  diff     [coming soon] Compare two runs side by side.
+  diff     Compare two runs side by side.
 ```
 
 Start the dashboard:
@@ -125,6 +128,17 @@ mcpgauge run examples/filesystem_basic.yaml
 #   [✓] list_tmp: passed
 #   [✗] write_file: failed
 # Run 3f8a2...: 1/2 passed
+```
+
+Compare two runs from the CLI:
+
+```bash
+mcpgauge diff 3f8a2... 9c1b4...
+# Case             A        B        Change
+# list_tmp         passed   passed   unchanged
+# write_file       failed   passed   fixed
+# delete_file      passed   failed   regressed
+# 1 regression, 1 fix, 1 unchanged
 ```
 
 Results are written to `mcpgauge.db` (SQLite). Override the path with `--db`:
@@ -173,10 +187,11 @@ uv run ruff format .   # format
 ## Architecture
 
 ```
-+----------------------------+       +-------------------------+
-|  CLI (typer)               |       |  Web UI (HTMX + Tailwind|
-|  mcpgauge run / serve      |       |  served by FastAPI)     |
-+-------------+--------------+       +-----------+-------------+
++----------------------------+       +----------------------------------+
+|  CLI (typer)               |       |  Web UI (HTMX + Tailwind)        |
+|  mcpgauge run / serve      |       |  served by FastAPI)               |
+|  mcpgauge diff             |       |  /runs/{a}/diff/{b} diff page    |
++-------------+--------------+       +-----------+----------------------+
               |                                  |
               v                                  v
 +---------------------------------------------------------------+
@@ -185,15 +200,15 @@ uv run ruff format .   # format
 |  - spawns MCP client (stdio/SSE)                               |
 |  - drives agent loop (Anthropic tool-use)                      |
 |  - streams events via server-sent events                       |
-+------+------------------+----------------------+---------------+
-       |                  |                      |
-       v                  v                      v
-  +----------+     +--------------+     +------------------+
-  | MCP      |     | Judge        |     | Store (SQLite)   |
-  | client   |     | (LLM rubric  |     | runs, cases,     |
-  | (SDK)    |     |  scorer)     |     | tool_calls,      |
-  +----+-----+     +------+-------+     | judgments        |
-       |                  |             +------------------+
++------+------------------+----------+-----------+---------------+
+       |                  |          |           |
+       v                  v          v           v
+  +----------+     +--------------+ +--------+ +------------------+
+  | MCP      |     | Judge        | | Diff   | | Store (SQLite)   |
+  | client   |     | (LLM rubric  | | engine | | runs, cases,     |
+  | (SDK)    |     |  scorer)     | | diff.py| | tool_calls,      |
+  +----+-----+     +------+-------+ +--------+ | judgments        |
+       |                  |                    +------------------+
        v                  v
   +----------+     +--------------+
   | Target   |     | Anthropic /  |
@@ -210,8 +225,8 @@ uv run ruff format .   # format
 - [x] **M2** — MCP client: stdio + SSE transport, tool/resource/prompt discovery
 - [x] **M3** — Suite schema (Pydantic v2) + YAML loader + example suites
 - [x] **M4** — Agent runner (Anthropic tool-use loop) + LLM-as-judge scorer + SQLite persistence via SQLModel
-- [x] **M5** — FastAPI + HTMX dashboard: runs list + case detail (you are here)
-- [ ] **M6** — Run diff view (regression comparison between two runs)
+- [x] **M5** — FastAPI + HTMX dashboard: runs list + case detail
+- [x] **M6** — Run diff view: per-case status changes, per-criterion verdict diffs, CLI `mcpgauge diff`
 - [ ] **M7** — Example suites: filesystem, sqlite, security/poisoning
 
 ---

@@ -14,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from mcpgauge.diff import RunDiff, compute_diff
 from mcpgauge.store import (
     CaseResult,
     Run,
@@ -27,6 +28,30 @@ from mcpgauge.store import (
 )
 
 _templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+
+
+def _status_colour(status: str) -> str:
+    """Return a Tailwind row background class for a given status string."""
+    return {
+        "passed": "bg-green-50",
+        "failed": "bg-red-50",
+        "error": "bg-yellow-50",
+        "missing": "bg-gray-100",
+    }.get(status, "bg-white")
+
+
+def _status_text_colour(status: str) -> str:
+    """Return a Tailwind text colour class for a given status string."""
+    return {
+        "passed": "text-green-700",
+        "failed": "text-red-700",
+        "error": "text-yellow-700",
+        "missing": "text-gray-500",
+    }.get(status, "text-gray-700")
+
+
+_templates.env.filters["status_colour"] = _status_colour
+_templates.env.filters["status_text_colour"] = _status_text_colour
 
 # Module-level state: MCP server connection config and per-run SSE queues
 _session: dict = {"transport": "stdio", "server_command": None, "server_url": None}
@@ -319,6 +344,61 @@ def create_app(db_path: str = "mcpgauge.db", engine=None) -> FastAPI:
             raise
         except Exception as exc:
             return {"error": str(exc)}
+
+    def _diff_to_dict(d: RunDiff) -> dict:
+        return {
+            "run_a": {
+                "id": d.run_a.id,
+                "suite_name": d.run_a.suite_name,
+                "created_at": d.run_a.created_at.isoformat(),
+            },
+            "run_b": {
+                "id": d.run_b.id,
+                "suite_name": d.run_b.suite_name,
+                "created_at": d.run_b.created_at.isoformat(),
+            },
+            "regressions": d.regressions,
+            "fixes": d.fixes,
+            "unchanged": d.unchanged,
+            "cases": [
+                {
+                    "case_id": c.case_id,
+                    "status_a": c.status_a,
+                    "status_b": c.status_b,
+                    "change": c.change,
+                    "criteria": [
+                        {
+                            "criterion_name": cr.criterion_name,
+                            "passed_a": cr.passed_a,
+                            "passed_b": cr.passed_b,
+                            "changed": cr.changed,
+                        }
+                        for cr in c.criteria
+                    ],
+                }
+                for c in d.cases
+            ],
+        }
+
+    @fastapi_app.get("/api/runs/{run_id_a}/diff/{run_id_b}")
+    async def api_diff(run_id_a: str, run_id_b: str):
+        try:
+            d = compute_diff(fastapi_app.state.engine, run_id_a, run_id_b)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+        return _diff_to_dict(d)
+
+    @fastapi_app.get("/runs/{run_id_a}/diff/{run_id_b}", response_class=HTMLResponse)
+    async def ui_diff(request: Request, run_id_a: str, run_id_b: str):
+        try:
+            d = compute_diff(fastapi_app.state.engine, run_id_a, run_id_b)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+        return _templates.TemplateResponse(
+            request,
+            "diff.html",
+            {"diff": d},
+        )
 
     @fastapi_app.post("/api/runs")
     async def api_create_run(req: RunRequest):

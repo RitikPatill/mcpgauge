@@ -108,6 +108,13 @@ def save_judgment(engine, j: Judgment) -> None:
         session.commit()
 
 
+def list_runs(engine) -> list[Run]:
+    """Return all runs ordered by created_at DESC."""
+    with Session(engine) as session:
+        statement = select(Run).order_by(Run.created_at.desc())
+        return list(session.exec(statement).all())
+
+
 def get_run(engine, run_id: str) -> Optional[Run]:
     with Session(engine) as session:
         return session.get(Run, run_id)

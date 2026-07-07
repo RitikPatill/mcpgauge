@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Header -->
+<div class="mb-6">
+  <a href="/runs/{{ diff.run_a.id }}" class="text-sm text-gray-400 hover:text-indigo-600">&larr; Back to Run A</a>
+  <h1 class="text-2xl font-bold mt-1">Run Diff</h1>
+  <div class="flex gap-6 mt-2 text-sm text-gray-600">
+    <span><strong>A:</strong> <span class="font-mono">{{ diff.run_a.id[:8] }}</span> &mdash; {{ diff.run_a.suite_name }} &mdash; {{ diff.run_a.created_at }}</span>
+    <span><strong>B:</strong> <span class="font-mono">{{ diff.run_b.id[:8] }}</span> &mdash; {{ diff.run_b.suite_name }} &mdash; {{ diff.run_b.created_at }}</span>
+  </div>
+</div>
+
+<!-- Summary chips -->
+<div class="flex gap-3 mb-6">
+  <span class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-semibold">
+    {{ diff.regressions }} regression{% if diff.regressions != 1 %}s{% endif %}
+  </span>
+  <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
+    {{ diff.fixes }} fix{% if diff.fixes != 1 %}es{% endif %}
+  </span>
+  <span class="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm font-semibold">
+    {{ diff.unchanged }} unchanged
+  </span>
+</div>
+
+<!-- Case table -->
+<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+  <table class="w-full text-left">
+    <thead>
+      <tr class="border-b bg-gray-50 text-xs text-gray-500 uppercase">
+        <th class="px-4 py-3">Case ID</th>
+        <th class="px-4 py-3">Status A</th>
+        <th class="px-4 py-3">Status B</th>
+        <th class="px-4 py-3">Change</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in diff.cases %}
+      {% if c.change == "regression" %}
+        {% set row_bg = "bg-red-50" %}
+      {% elif c.change == "fix" %}
+        {% set row_bg = "bg-green-50" %}
+      {% else %}
+        {% set row_bg = "bg-gray-50" %}
+      {% endif %}
+      <tr class="border-b {{ row_bg }}">
+        <td class="px-4 py-3" colspan="4">
+          <details>
+            <summary class="cursor-pointer select-none">
+              <div class="inline-grid grid-cols-4 w-full gap-4 items-center" style="width: calc(100% - 1.5rem);">
+                <span class="font-mono text-sm font-medium">{{ c.case_id }}</span>
+                <span class="text-sm {{ c.status_a | status_text_colour }}">
+                  {% if c.status_a == "passed" %}&#10003;{% elif c.status_a == "failed" %}&#10007;{% else %}&mdash;{% endif %}
+                  {{ c.status_a }}
+                </span>
+                <span class="text-sm {{ c.status_b | status_text_colour }}">
+                  {% if c.status_b == "passed" %}&#10003;{% elif c.status_b == "failed" %}&#10007;{% else %}&mdash;{% endif %}
+                  {{ c.status_b }}
+                </span>
+                <span class="text-xs font-semibold uppercase
+                  {% if c.change == 'regression' %}text-red-600
+                  {% elif c.change == 'fix' %}text-green-600
+                  {% elif c.change == 'new' %}text-indigo-600
+                  {% else %}text-gray-400{% endif %}">
+                  {{ c.change }}
+                </span>
+              </div>
+            </summary>
+            {% if c.criteria %}
+            <div class="mt-3 ml-4 space-y-1">
+              <p class="text-xs font-semibold text-gray-500 uppercase mb-2">Criteria</p>
+              <table class="text-sm w-full">
+                <thead>
+                  <tr class="text-xs text-gray-400">
+                    <th class="text-left pb-1 pr-4">Criterion</th>
+                    <th class="text-center pb-1 pr-4">A</th>
+                    <th class="text-center pb-1 pr-4">B</th>
+                    <th class="text-left pb-1">Diff</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for cr in c.criteria %}
+                  <tr class="{% if cr.changed %}font-semibold{% endif %}">
+                    <td class="pr-4 py-0.5 text-gray-700">{{ cr.criterion_name }}</td>
+                    <td class="text-center pr-4 py-0.5">
+                      {% if cr.passed_a is none %}<span class="text-gray-400">&mdash;</span>
+                      {% elif cr.passed_a %}<span class="text-green-600">&#10003;</span>
+                      {% else %}<span class="text-red-600">&#10007;</span>{% endif %}
+                    </td>
+                    <td class="text-center pr-4 py-0.5">
+                      {% if cr.passed_b is none %}<span class="text-gray-400">&mdash;</span>
+                      {% elif cr.passed_b %}<span class="text-green-600">&#10003;</span>
+                      {% else %}<span class="text-red-600">&#10007;</span>{% endif %}
+                    </td>
+                    <td class="py-0.5">
+                      {% if cr.changed %}
+                      <span class="bg-yellow-100 text-yellow-700 text-xs px-1.5 py-0.5 rounded">changed</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% endif %}
+          </details>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if not diff.cases %}
+  <p class="text-sm text-gray-400 px-4 py-6 text-center">No cases to compare.</p>
+  {% endif %}
+</div>
+
+{% endblock %}
