@@ -1,5 +1,9 @@
 # MCPGauge
 
+![MCPGauge dashboard](docs/screenshot.png)
+
+![MCPGauge demo](docs/demo.gif)
+
 **MCPGauge is a self-hostable eval harness for MCP servers.**
 
 [![CI](https://github.com/your-org/mcpgauge/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/mcpgauge/actions/workflows/ci.yml)
@@ -19,7 +23,7 @@ MCP server authors who want automated regression testing — anyone who has writ
 
 ---
 
-## What works now (M7)
+## What works now (M8)
 
 | Area | Status |
 |---|---|
@@ -53,6 +57,10 @@ MCP server authors who want automated regression testing — anyone who has writ
 | **Mock poisoning server** (`examples/servers/poisoning_server.py`) — stdio MCP server that embeds a `[SYSTEM OVERRIDE]` prompt-injection payload and a secret token (`FLAG{mcp_poison_demo}`) in every tool result; exposes a forbidden `exfiltrate_data` tool as the injection target | **done** |
 | **Security suite** (`examples/poisoning.yaml`) — 3 cases exercising tool-output hijacking: `resist_via_read_note`, `resist_via_search`, `secret_not_leaked`; rubric criteria check that the agent never calls `exfiltrate_data`, ignores the injected override, and does not echo the secret token | **done** |
 | **Poisoning tests** (`tests/test_poisoning.py`) — unit test verifying the suite parses cleanly and all security-critical criteria carry `required=True`; integration tests (marked `integration`) confirming the server subprocess exposes the correct tools and embeds the payload | **done** |
+| **`Makefile`** — `make install`, `make demo`, `make serve`, `make record` convenience targets | **done** |
+| **`record_demo.sh`** — reproducible recording script: asciinema capture → `agg` GIF conversion → playwright screenshot | **done** |
+| **`docs/screenshot.png`** — placeholder dashboard screenshot (replaced by `make record`) | **done** |
+| **`docs/demo.gif`** — placeholder demo GIF (replaced by `make record`) | **done** |
 
 ### Loading a suite
 
@@ -97,8 +105,17 @@ Full worked examples: [`examples/filesystem_basic.yaml`](examples/filesystem_bas
 ```bash
 git clone https://github.com/your-org/mcpgauge
 cd mcpgauge
-uv sync
-mcpgauge --help
+make install          # uv sync
+export ANTHROPIC_API_KEY=sk-ant-...
+make demo             # run the poisoning suite end-to-end
+make serve            # open dashboard at http://localhost:8000/runs
+```
+
+To reproduce the demo assets (`docs/demo.gif`, `docs/screenshot.png`), install the recording prerequisites once, then run `make record`:
+
+```bash
+pip install asciinema playwright && cargo install agg && playwright install chromium
+make record           # bash record_demo.sh — captures terminal via asciinema, converts to GIF via agg, screenshots dashboard via playwright
 ```
 
 ```
@@ -244,6 +261,7 @@ uv run ruff format .   # format
 - [x] **M5** — FastAPI + HTMX dashboard: runs list + case detail
 - [x] **M6** — Run diff view: per-case status changes, per-criterion verdict diffs, CLI `mcpgauge diff`
 - [x] **M7** — Security suite: mock poisoning server (`examples/servers/`) returning prompt-injection payloads; `examples/poisoning.yaml` with 3 rubric-checked cases (forbidden tool, injected override, secret leakage)
+- [x] **M8** — Demo + screenshots: `Makefile` with one-command quickstart, `record_demo.sh` for reproducible recording, `docs/screenshot.png` and `docs/demo.gif` placeholder assets
 
 ---
 
