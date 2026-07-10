@@ -1,5 +1,9 @@
 # MCPGauge
 
+
+> **Video walkthrough:** https://youtu.be/T6xS-dE9Lwc
+> **60-second overview:** https://youtu.be/FScnoCoHuQw
+
 [![CI](https://github.com/RitikPatill/mcpgauge/actions/workflows/ci.yml/badge.svg)](https://github.com/RitikPatill/mcpgauge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
